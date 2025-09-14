@@ -1,1 +1,30 @@
 @ExpenseTrackerAPI_HostAddress = http://localhost:5222
+
+POST {{ExpenseTrackerAPI_HostAddress}}/api/auth/register
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "admin1234@email.com",
+  "username": "admin1234",
+  "password": "admin1234"
+}
+
+###
+
+POST {{ExpenseTrackerAPI_HostAddress}}/api/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "admin1234@email.com",
+  "password": "admin1234"
+}
+
+###
+
+GET {{ExpenseTrackerAPI_HostAddress}}/api/auth/test
+Accept: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdWRpZW5jZS5jb20iLCJpc3MiOiJpc3N1ZXIuY29tIiwiZXhwIjoxNzU3ODEyNTQyLCJuYmYiOjE3NTc4MDg5NDIsIm5hbWUiOiJhZG1pbjEyMzQiLCJlbWFpbCI6ImFkbWluMTIzNEBlbWFpbC5jb20iLCJpZCI6IjMyNjRjZjU0LTI2ZmYtNDY3MS1hMzNmLTcwOGVhMzRjODE3OSIsImlhdCI6MTc1NzgwODk0Mn0.SihPbRlU8t6_VTcLtE1rEsifOBd1_jJJtQ1ibxhBtfM
+
+###
