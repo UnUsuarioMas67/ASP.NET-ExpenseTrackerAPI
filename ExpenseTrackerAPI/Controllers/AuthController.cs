@@ -13,24 +13,31 @@ namespace ExpenseTrackerAPI.Controllers;
 public class AuthController(IAuthService authService) : ControllerBase
 {
     [HttpPost, Route("login")]
-    public async Task<IActionResult> Login(LoginDTO loginDTO)
+    public async Task<IActionResult> Login(LoginDTO login)
     {
         try
         {
-            var token = await authService.Login(loginDTO);
+            var token = await authService.Login(login);
             return Ok(new { token });
         }
-        catch (LoginException)
+        catch (AuthenticationException)
         {
-            return Unauthorized(new { message = "Incorrect email or password"});
+            return Ok(new { errorMessage = "Incorrect email or password" });
         }
     }
 
     [HttpPost, Route("register")]
-    public async Task<IActionResult> Register(RegisterDTO registerDto)
+    public async Task<IActionResult> Register(RegisterDTO register)
     {
-        var token = await authService.Register(registerDto);
-        return Ok(new { token });
+        try
+        {
+            var token = await authService.Register(register);
+            return Ok(new { token });
+        }
+        catch (AuthenticationException e)
+        {
+            return Ok(new { errorMessage = e.InnerMessage });
+        }
     }
 
     [HttpGet, Route("test")]

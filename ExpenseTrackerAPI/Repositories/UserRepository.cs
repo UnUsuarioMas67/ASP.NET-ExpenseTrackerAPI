@@ -25,12 +25,22 @@ public class UserRepository(IConfiguration configuration) : IUserRepository
         var sql = @"INSERT INTO Users (Email, Username, HashedPassword) VALUES (@email, @username, @hashedPassword)
                     SELECT u.UserId, u.Username, u.Email, u.HashedPassword FROM Users u WHERE Email = @email";
         var param = new { email, username, hashedPassword = BCrypt.Net.BCrypt.HashPassword(password) };
-        
-        await using var conn = new SqlConnection(configuration.GetConnectionString("ExpenseTracker")!);
-        await conn.OpenAsync();
 
-        var user = await conn.QueryFirstAsync<User>(sql, param);
-        return user;
+        try
+        {
+            await using var conn = new SqlConnection(configuration.GetConnectionString("ExpenseTracker")!);
+            await conn.OpenAsync();
+
+            var user = await conn.QueryFirstAsync<User>(sql, param);
+            return user;
+        }
+        catch (SqlException e)
+        {
+            if (e.Message.Contains("Violation of UNIQUE KEY constraint"))
+                throw new DuplicateEmailException();
+            
+            throw;
+        }
     }
 
     public async Task<User?> GetUserByEmail(string email)
@@ -44,3 +54,5 @@ public class UserRepository(IConfiguration configuration) : IUserRepository
         return user;
     }
 }
+
+public class DuplicateEmailException() : Exception("Email already registered");
