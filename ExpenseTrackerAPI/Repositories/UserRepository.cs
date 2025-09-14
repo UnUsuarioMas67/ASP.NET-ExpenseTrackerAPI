@@ -1,4 +1,7 @@
-﻿namespace ExpenseTrackerAPI.Repositories;
+﻿using Dapper;
+using Microsoft.Data.SqlClient;
+
+namespace ExpenseTrackerAPI.Repositories;
 
 public interface IUserRepository
 {
@@ -6,7 +9,7 @@ public interface IUserRepository
     Task<User?> GetUserByEmail(string email);
 }
 
-public class UserRepository : IUserRepository
+public class UserRepository(IConfiguration configuration) : IUserRepository
 {
     private readonly List<User> _users = [];
     
@@ -16,24 +19,28 @@ public class UserRepository : IUserRepository
             || string.IsNullOrWhiteSpace(password)
             || string.IsNullOrWhiteSpace(username))
         {
-            throw new Exception("Invalid data");
+            throw new ArgumentException("One or more arguments are blank");
         }
 
-        var user = new User
-        {
-            Id = Guid.NewGuid().ToString(),
-            Email = email,
-            Username = username,
-            HashedPassword = BCrypt.Net.BCrypt.HashPassword(password)
-        };
+        var sql = @"INSERT INTO Users (Email, Username, HashedPassword) VALUES (@email, @username, @hashedPassword)
+                    SELECT u.UserId, u.Username, u.Email, u.HashedPassword FROM Users u WHERE Email = @email";
+        var param = new { email, username, hashedPassword = BCrypt.Net.BCrypt.HashPassword(password) };
         
-        _users.Add(user);
-        return await Task.FromResult(user);
+        await using var conn = new SqlConnection(configuration.GetConnectionString("ExpenseTracker")!);
+        await conn.OpenAsync();
+
+        var user = await conn.QueryFirstAsync<User>(sql, param);
+        return user;
     }
 
     public async Task<User?> GetUserByEmail(string email)
     {
-        var user = _users.FirstOrDefault(u => u.Email == email);
-        return await Task.FromResult(user);
+        var sql = "SELECT u.UserId, u.Username, u.Email, u.HashedPassword FROM Users u WHERE Email = @email";
+        
+        await using var conn = new SqlConnection(configuration.GetConnectionString("ExpenseTracker")!);
+        await conn.OpenAsync();
+        
+        var user = await conn.QueryFirstOrDefaultAsync<User>(sql, new { email });
+        return user;
     }
 }

@@ -17,7 +17,7 @@ public class TokenProvider(IConfiguration configuration)
         var claimsIdentity = new ClaimsIdentity([
             new Claim(JwtRegisteredClaimNames.Name, user.Username),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim ("id", user.Id),
+            new Claim ("id", user.UserId.ToString()),
         ]);
 
         var tokenDescriptor = new SecurityTokenDescriptor
