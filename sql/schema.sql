@@ -81,4 +81,13 @@ BEGIN
 END
 GO
 
-EXEC sp_GetExpensesFromUser 'admin1234@email.com'
+CREATE OR ALTER PROC sp_DeleteExpense (@ExpenseId INT)
+AS 
+BEGIN
+	DELETE FROM UserExpenses WHERE ExpenseId = @ExpenseId
+	DELETE FROM Expenses WHERE ExpenseId = @ExpenseId
+END
+
+EXEC sp_DeleteExpense 5
+
+SELECT * FROM Users
