@@ -7,9 +7,9 @@ namespace ExpenseTrackerAPI.Repositories;
 public interface IExpenseRepository
 {
     Task<Expense> AddExpenseAsync(Expense expense, string userEmail);
-    Task<List<Expense>> GetUserExpensesAsync(string email);
+    Task<List<Expense>> GetUserExpensesAsync(string userEmail);
     Task<Expense> UpdateExpenseAsync(Expense expense);
-    Task<bool> DeleteExpenseAsync(Expense expense);
+    Task<bool> DeleteExpenseAsync(int expenseId);
 }
 
 public class ExpenseRepository(IConfiguration configuration) : IExpenseRepository
@@ -46,11 +46,11 @@ public class ExpenseRepository(IConfiguration configuration) : IExpenseRepositor
         return newExpense;
     }
 
-    public async Task<List<Expense>> GetUserExpensesAsync(string email)
+    public async Task<List<Expense>> GetUserExpensesAsync(string userEmail)
     {
         await using var conn = new SqlConnection(configuration.GetConnectionString("ExpenseTracker"));
         await conn.OpenAsync();
-        
+
         var expenses = await conn.QueryAsync<Expense, Category, Expense>(
             "sp_GetExpensesFromUser",
             (expense, category) =>
@@ -58,7 +58,7 @@ public class ExpenseRepository(IConfiguration configuration) : IExpenseRepositor
                 expense.Category = category;
                 return expense;
             },
-            new { UserEmail = email },
+            new { UserEmail = userEmail },
             splitOn: "CategoryId",
             commandType: CommandType.StoredProcedure);
 
@@ -73,11 +73,19 @@ public class ExpenseRepository(IConfiguration configuration) : IExpenseRepositor
         throw new NotImplementedException();
     }
 
-    public async Task<bool> DeleteExpenseAsync(Expense expense)
+    public async Task<bool> DeleteExpenseAsync(int expenseId)
     {
-        await using var conn = new SqlConnection(configuration.GetConnectionString("ExpenseTracker"));
-        await conn.OpenAsync();
+        try
+        {
+            await using var conn = new SqlConnection(configuration.GetConnectionString("ExpenseTracker"));
+            await conn.OpenAsync();
 
-        throw new NotImplementedException();
+            await conn.ExecuteAsync("sp_DeleteExpense", new { ExpenseId = expenseId }, commandType: CommandType.StoredProcedure);
+            return true;
+        }
+        catch (SqlException e)
+        {
+            return false;
+        }
     }
 }

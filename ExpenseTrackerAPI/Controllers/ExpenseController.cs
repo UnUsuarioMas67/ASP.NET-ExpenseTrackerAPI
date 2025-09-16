@@ -46,4 +46,17 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
         
         return Ok(result);
     }
+
+    [HttpDelete, Route("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var email = HttpContext.User.FindFirstValue(ClaimTypes.Email)!;
+        var expenses = await expenseRepository.GetUserExpensesAsync(email);
+        
+        if (!expenses.Exists(e => e.ExpenseId == id))
+            return NotFound();
+        
+        await expenseRepository.DeleteExpenseAsync(id);
+        return NoContent();
+    }
 }
