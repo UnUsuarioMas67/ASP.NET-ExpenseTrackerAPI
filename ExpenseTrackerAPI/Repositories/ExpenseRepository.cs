@@ -42,7 +42,6 @@ public class ExpenseRepository(IConfiguration configuration) : IExpenseRepositor
                 commandType: CommandType.StoredProcedure);
 
         var newExpense = query.Single();
-
         return newExpense;
     }
 
@@ -67,10 +66,40 @@ public class ExpenseRepository(IConfiguration configuration) : IExpenseRepositor
 
     public async Task<Expense> UpdateExpenseAsync(Expense expense)
     {
+        var sql = @"UPDATE Expenses
+        SET [Description] = @Description, Amount = @Amount, ExpenseDate = @Date, CategoryId = @CategoryId
+        WHERE ExpenseId = @ExpenseId
+        
+        SELECT ExpenseId, [Description], Amount, ExpenseDate as [Date], c.CategoryId, c.CategoryName 
+	    FROM Expenses e
+	    JOIN ExpenseCategories c ON e.CategoryId = c.CategoryId
+	    WHERE e.ExpenseId = @ExpenseId";
+
+        var param = new
+        {
+            expense.Description,
+            expense.Amount,
+            expense.Date,
+            expense.Category.CategoryId,
+            expense.ExpenseId
+        };
+
         await using var conn = new SqlConnection(configuration.GetConnectionString("ExpenseTracker"));
         await conn.OpenAsync();
 
-        throw new NotImplementedException();
+        var query = await conn.QueryAsync<Expense, Category, Expense>(
+            sql,
+            (expense, category) =>
+            {
+                expense.Category = category;
+                return expense;
+            },
+            param,
+            splitOn: "CategoryId"
+        );
+
+        var updatedExpense = query.Single();
+        return updatedExpense;
     }
 
     public async Task<bool> DeleteExpenseAsync(int expenseId)
@@ -80,10 +109,11 @@ public class ExpenseRepository(IConfiguration configuration) : IExpenseRepositor
             await using var conn = new SqlConnection(configuration.GetConnectionString("ExpenseTracker"));
             await conn.OpenAsync();
 
-            await conn.ExecuteAsync("sp_DeleteExpense", new { ExpenseId = expenseId }, commandType: CommandType.StoredProcedure);
+            await conn.ExecuteAsync("sp_DeleteExpense", new { ExpenseId = expenseId },
+                commandType: CommandType.StoredProcedure);
             return true;
         }
-        catch (SqlException e)
+        catch (SqlException)
         {
             return false;
         }
