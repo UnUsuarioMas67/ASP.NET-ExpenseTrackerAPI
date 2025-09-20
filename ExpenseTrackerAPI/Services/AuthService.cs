@@ -21,7 +21,7 @@ public class AuthService(IUserRepository userRepository, TokenProvider tokenProv
             throw new AuthenticationException("Incorrect password", login.Email, AuthenticationActions.Login);
 
         var token = tokenProvider.Create(user);
-        return await Task.FromResult(token);
+        return token;
     }
 
     public async Task<string> Register(RegisterDTO register)
