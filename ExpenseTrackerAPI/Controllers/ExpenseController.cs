@@ -13,19 +13,19 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Expense))]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Create(ExpenseDTO dto)
+    public async Task<IActionResult> Create(ExpenseRequest request)
     {
         var email = HttpContext.User.FindFirstValue(ClaimTypes.Email)!;
         
-        var category = await categoryRepository.GetCategoryByIdAsync(dto.Category);
+        var category = await categoryRepository.GetCategoryByIdAsync(request.Category);
         if (category == null)
             return BadRequest(new { Message = "Invalid category" });
         
         var expense = new Expense
         {
-            Description = dto.Description,
-            Amount = dto.Amount,
-            Date = dto.Date,
+            Description = request.Description,
+            Amount = request.Amount,
+            Date = request.Date,
             Category = category
         };
 
@@ -64,7 +64,7 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Expense))]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Update(int id, ExpenseDTO dto)
+    public async Task<IActionResult> Update(int id, ExpenseRequest request)
     {
         var email = HttpContext.User.FindFirstValue(ClaimTypes.Email)!;
         var expenses = await expenseRepository.GetUserExpensesAsync(email);
@@ -73,17 +73,17 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
         if (expense == null)
             return NotFound();
 
-        if (expense.Category.CategoryId != dto.Category)
+        if (expense.Category.CategoryId != request.Category)
         {
-            var newCategory = await categoryRepository.GetCategoryByIdAsync(dto.Category);
+            var newCategory = await categoryRepository.GetCategoryByIdAsync(request.Category);
             if (newCategory == null)
                 return BadRequest(new { Message = "Invalid category" });
             
             expense.Category = newCategory;
         }
-        expense.Description = dto.Description;
-        expense.Amount = dto.Amount;
-        expense.Date = dto.Date;
+        expense.Description = request.Description;
+        expense.Amount = request.Amount;
+        expense.Date = request.Date;
 
         var updatedExpense = await expenseRepository.UpdateExpenseAsync(expense);
         return Ok(ExpenseResult.FromExpense(updatedExpense));

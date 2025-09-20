@@ -5,13 +5,13 @@ namespace ExpenseTrackerAPI.Services;
 
 public interface IAuthService
 {
-    Task<string> Login(LoginDTO login);
-    Task<string> Register(RegisterDTO register);
+    Task<string> Login(LoginRequest login);
+    Task<string> Register(RegisterRequest register);
 }
 
 public class AuthService(IUserRepository userRepository, TokenProvider tokenProvider) : IAuthService
 {
-    public async Task<string> Login(LoginDTO login)
+    public async Task<string> Login(LoginRequest login)
     {
         var user = await userRepository.GetUserByEmail(login.Email) 
                    ?? throw new AuthenticationException("User not found", login.Email, AuthenticationActions.Login);
@@ -24,7 +24,7 @@ public class AuthService(IUserRepository userRepository, TokenProvider tokenProv
         return token;
     }
 
-    public async Task<string> Register(RegisterDTO register)
+    public async Task<string> Register(RegisterRequest register)
     {
         try
         {

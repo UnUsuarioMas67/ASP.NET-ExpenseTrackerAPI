@@ -13,7 +13,7 @@ namespace ExpenseTrackerAPI.Controllers;
 public class AuthController(IAuthService authService) : ControllerBase
 {
     [HttpPost, Route("login")]
-    public async Task<IActionResult> Login(LoginDTO login)
+    public async Task<IActionResult> Login(LoginRequest login)
     {
         try
         {
@@ -27,7 +27,7 @@ public class AuthController(IAuthService authService) : ControllerBase
     }
 
     [HttpPost, Route("register")]
-    public async Task<IActionResult> Register(RegisterDTO register)
+    public async Task<IActionResult> Register(RegisterRequest register)
     {
         try
         {

@@ -2,7 +2,7 @@
 
 namespace ExpenseTrackerAPI.DTOs;
 
-public class ExpenseDTO
+public class ExpenseRequest
 {
     [Required, StringLength(200)] public string Description { get; set; }
     [Required, DataType(DataType.Currency), Range(0.01, double.MaxValue)] public decimal Amount { get; set; }
