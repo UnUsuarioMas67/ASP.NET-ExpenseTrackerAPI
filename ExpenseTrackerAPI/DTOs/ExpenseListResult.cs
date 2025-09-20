@@ -4,7 +4,16 @@ namespace ExpenseTrackerAPI.DTOs;
 
 public class ExpenseListResult
 {
-    public List<Expense> Expenses { get; set; }
+    public List<ExpenseResult> Expenses { get; set; }
     [EmailAddress] public string Email { get; set; }
     public decimal TotalSpent { get; set; }
+
+    public ExpenseListResult() {}
+
+    public ExpenseListResult(List<Expense> expenses, string email)
+    {
+        Email = email;
+        Expenses = expenses.Select(e => ExpenseResult.FromExpense(e)).ToList();
+        TotalSpent = Expenses.Sum(e => e.Amount);
+    }
 }

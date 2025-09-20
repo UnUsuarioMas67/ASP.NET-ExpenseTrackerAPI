@@ -30,7 +30,7 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
         };
 
         var addedExpense = await expenseRepository.AddExpenseAsync(expense, email);
-        return Ok(addedExpense);
+        return Ok(ExpenseResult.FromExpense(addedExpense));
     }
 
     [HttpGet]
@@ -40,12 +40,7 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
         var email = HttpContext.User.FindFirstValue(ClaimTypes.Email)!;
         var expenses = await expenseRepository.GetUserExpensesAsync(email);
 
-        var result = new ExpenseListResult
-        {
-            Email = email,
-            Expenses = expenses,
-            TotalSpent = expenses.Sum(e => e.Amount),
-        };
+        var result = new ExpenseListResult(expenses, email);
         
         return Ok(result);
     }
@@ -91,6 +86,6 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
         expense.Date = dto.Date;
 
         var updatedExpense = await expenseRepository.UpdateExpenseAsync(expense);
-        return Ok(updatedExpense);
+        return Ok(ExpenseResult.FromExpense(updatedExpense));
     }
 }
