@@ -87,7 +87,3 @@ BEGIN
 	DELETE FROM UserExpenses WHERE ExpenseId = @ExpenseId
 	DELETE FROM Expenses WHERE ExpenseId = @ExpenseId
 END
-
-EXEC sp_DeleteExpense 5
-
-SELECT * FROM Users
