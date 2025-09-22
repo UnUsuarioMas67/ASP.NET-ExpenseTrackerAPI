@@ -16,11 +16,11 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
     public async Task<IActionResult> Create(ExpenseRequest request)
     {
         var email = HttpContext.User.FindFirstValue(ClaimTypes.Email)!;
-        
+
         var category = await categoryRepository.GetCategoryByIdAsync(request.Category);
         if (category == null)
             return BadRequest(new { Message = "Invalid category" });
-        
+
         var expense = new Expense
         {
             Description = request.Description,
@@ -34,14 +34,26 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
     }
 
     [HttpGet]
+    [HttpGet("{date1}")]
+    [HttpGet("{date1}/{date2}")]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(ExpenseListResult))]
-    public async Task<IActionResult> Get()
+    public async Task<IActionResult> Get(DateTime? date1 = null, DateTime? date2 = null)
     {
         var email = HttpContext.User.FindFirstValue(ClaimTypes.Email)!;
         var expenses = await expenseRepository.GetUserExpensesAsync(email);
 
-        var result = new ExpenseListResult(expenses, email);
-        
+        var filteredExpenses = expenses.Where(e =>
+        {
+            if (date1.HasValue && date2.HasValue)
+                return e.Date >= date1 && e.Date <= date2;
+            if (date1.HasValue)
+                return e.Date >= date1;
+
+            return true;
+        }).ToList();
+
+        var result = new ExpenseListResult(filteredExpenses, email);
+
         return Ok(result);
     }
 
@@ -52,10 +64,10 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
     {
         var email = HttpContext.User.FindFirstValue(ClaimTypes.Email)!;
         var expenses = await expenseRepository.GetUserExpensesAsync(email);
-        
+
         if (!expenses.Exists(e => e.ExpenseId == id))
             return NotFound();
-        
+
         await expenseRepository.DeleteExpenseAsync(id);
         return NoContent();
     }
@@ -69,7 +81,7 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
         var email = HttpContext.User.FindFirstValue(ClaimTypes.Email)!;
         var expenses = await expenseRepository.GetUserExpensesAsync(email);
         var expense = expenses.FirstOrDefault(e => e.ExpenseId == id);
-        
+
         if (expense == null)
             return NotFound();
 
@@ -78,9 +90,10 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
             var newCategory = await categoryRepository.GetCategoryByIdAsync(request.Category);
             if (newCategory == null)
                 return BadRequest(new { Message = "Invalid category" });
-            
+
             expense.Category = newCategory;
         }
+
         expense.Description = request.Description;
         expense.Amount = request.Amount;
         expense.Date = request.Date;
