@@ -10,7 +10,7 @@ public class ExpenseListResult
 
     public ExpenseListResult() {}
 
-    public ExpenseListResult(List<Expense> expenses, string email)
+    public ExpenseListResult(IEnumerable<Expense> expenses, string email)
     {
         Email = email;
         Expenses = expenses.Select(e => ExpenseResult.FromExpense(e)).ToList();

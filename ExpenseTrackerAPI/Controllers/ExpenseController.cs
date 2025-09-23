@@ -37,22 +37,42 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
     [HttpGet("{date1}")]
     [HttpGet("{date1}/{date2}")]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(ExpenseListResult))]
-    public async Task<IActionResult> Get(DateTime? date1 = null, DateTime? date2 = null)
+    public async Task<IActionResult> Get([FromQuery] GetEndpointParams param, DateOnly? date1 = null,
+        DateOnly? date2 = null)
     {
         var email = HttpContext.User.FindFirstValue(ClaimTypes.Email)!;
         var expenses = await expenseRepository.GetUserExpensesAsync(email);
 
         var filteredExpenses = expenses.Where(e =>
         {
+            var dateOnly = DateOnly.FromDateTime(e.Date);
+            var dateOnlyNow = DateOnly.FromDateTime(DateTime.Now);
+
             if (date1.HasValue && date2.HasValue)
-                return e.Date >= date1 && e.Date <= date2;
+                return dateOnly >= date1 && dateOnly <= date2;
             if (date1.HasValue)
-                return e.Date >= date1;
+                return dateOnly >= date1;
 
-            return true;
-        }).ToList();
+            return param.DateFilter switch
+            {
+                DateFilter.PastWeek => dateOnly >= dateOnlyNow.AddDays(-7),
+                DateFilter.PastMonth => dateOnly >= dateOnlyNow.AddMonths(-1),
+                DateFilter.Last3Months => dateOnly >= dateOnlyNow.AddMonths(-3),
+                _ => true
+            };
+        }).Where(e => e.Description.Contains(param.SearchString, StringComparison.CurrentCultureIgnoreCase));
 
-        var result = new ExpenseListResult(filteredExpenses, email);
+        var orderedExpenses = filteredExpenses.OrderByDescending(object (e) =>
+        {
+            return param.SortBy switch
+            {
+                SortOption.Date => e.Date,
+                SortOption.Amount => e.Amount,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+        });
+
+        var result = new ExpenseListResult(orderedExpenses, email);
 
         return Ok(result);
     }
