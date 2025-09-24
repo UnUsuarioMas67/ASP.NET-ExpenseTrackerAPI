@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using ExpenseTrackerAPI.DTOs;
 using ExpenseTrackerAPI.Repositories;
 using Microsoft.AspNetCore.Authorization;
@@ -41,6 +42,8 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
         DateOnly? date2 = null)
     {
         var email = HttpContext.User.FindFirstValue(ClaimTypes.Email)!;
+        var username = HttpContext.User.FindFirstValue(JwtRegisteredClaimNames.Name)!;
+        
         var expenses = await expenseRepository.GetUserExpensesAsync(email);
 
         var filteredExpenses = expenses.Where(e =>
@@ -72,7 +75,7 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
             };
         });
 
-        var result = new ExpenseListResult(orderedExpenses, email);
+        var result = new ExpenseListResult(orderedExpenses, email, username);
 
         return Ok(result);
     }
