@@ -4,6 +4,7 @@ using ExpenseTrackerAPI.DTOs;
 using ExpenseTrackerAPI.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace ExpenseTrackerAPI.Controllers;
 
@@ -18,16 +19,30 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
     {
         var email = HttpContext.User.FindFirstValue(ClaimTypes.Email)!;
 
+        // validate category
         var category = await categoryRepository.GetCategoryByIdAsync(request.Category);
         if (category == null)
-            return BadRequest(new { Message = "Invalid category" });
+            ModelState.AddModelError("Category", $"'{request.Category}' is not a valid category.");
+
+        // validate date
+        if (!ValidateDate(request.Date))
+            ModelState.AddModelError("Date", "Date can't be in the future.");
+
+        if (!ModelState.IsValid)
+        {
+            var problemDetails = ProblemDetailsFactory.CreateValidationProblemDetails(
+                HttpContext,
+                ModelState,
+                StatusCodes.Status400BadRequest);
+            return BadRequest(problemDetails);
+        }
 
         var expense = new Expense
         {
             Description = request.Description,
             Amount = request.Amount,
             Date = request.Date,
-            Category = category
+            Category = category!,
         };
 
         var addedExpense = await expenseRepository.AddExpenseAsync(expense, email);
@@ -43,7 +58,7 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
     {
         var email = HttpContext.User.FindFirstValue(ClaimTypes.Email)!;
         var username = HttpContext.User.FindFirstValue(JwtRegisteredClaimNames.Name)!;
-        
+
         var expenses = await expenseRepository.GetUserExpensesAsync(email);
 
         var filteredExpenses = expenses.Where(e =>
@@ -110,11 +125,26 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
 
         if (expense.Category.CategoryId != request.Category)
         {
+            // validate category
             var newCategory = await categoryRepository.GetCategoryByIdAsync(request.Category);
+            
             if (newCategory == null)
-                return BadRequest(new { Message = "Invalid category" });
+                ModelState.AddModelError("Category", $"'{request.Category}' is not a valid category.");
+            else
+                expense.Category = newCategory;
+        }
+        
+        // validate date
+        if (!ValidateDate(request.Date))
+            ModelState.AddModelError("Date", "Date can't be in the future.");
 
-            expense.Category = newCategory;
+        if (!ModelState.IsValid)
+        {
+            var problemDetails = ProblemDetailsFactory.CreateValidationProblemDetails(
+                HttpContext,
+                ModelState,
+                StatusCodes.Status400BadRequest);
+            return BadRequest(problemDetails);
         }
 
         expense.Description = request.Description;
@@ -123,5 +153,20 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
 
         var updatedExpense = await expenseRepository.UpdateExpenseAsync(expense);
         return Ok(ExpenseResult.FromExpense(updatedExpense));
+    }
+
+    private void ValidateExpense(ExpenseRequest request, Category? category)
+    {
+        if (category == null)
+            ModelState.AddModelError("Category", $"'{request.Category}' is not a valid category.");
+
+        // validate date
+        if (!ValidateDate(request.Date))
+            ModelState.AddModelError("Date", "Date can't be in the future.");
+    }
+
+    private bool ValidateDate(DateTime date)
+    {
+        return date <= DateTime.UtcNow;
     }
 }
