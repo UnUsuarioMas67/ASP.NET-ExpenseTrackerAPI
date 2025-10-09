@@ -4,7 +4,10 @@ using ExpenseTrackerAPI.DTOs;
 using ExpenseTrackerAPI.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ApplicationModels;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace ExpenseTrackerAPI.Controllers;
 
@@ -15,35 +18,14 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Expense))]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [SuppressModelStateInvalidFilter]
     public async Task<IActionResult> Create(ExpenseRequest request)
     {
         var email = HttpContext.User.FindFirstValue(ClaimTypes.Email)!;
 
-        // validate category
-        var category = await categoryRepository.GetCategoryByIdAsync(request.Category);
-        if (category == null)
-            ModelState.AddModelError("Category", $"'{request.Category}' is not a valid category.");
-
-        // validate date
-        if (!ValidateDate(request.Date))
-            ModelState.AddModelError("Date", "Date can't be in the future.");
-
-        if (!ModelState.IsValid)
-        {
-            var problemDetails = ProblemDetailsFactory.CreateValidationProblemDetails(
-                HttpContext,
-                ModelState,
-                StatusCodes.Status400BadRequest);
-            return BadRequest(problemDetails);
-        }
-
-        var expense = new Expense
-        {
-            Description = request.Description,
-            Amount = request.Amount,
-            Date = request.Date,
-            Category = category!,
-        };
+        var expense = await ValidateExpenseRequestAsync(request, ModelState);
+        if (expense == null)
+            return ValidationProblem();
 
         var addedExpense = await expenseRepository.AddExpenseAsync(expense, email);
         return Ok(ExpenseResult.FromExpense(addedExpense));
@@ -110,6 +92,7 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
         return NoContent();
     }
 
+    [SuppressModelStateInvalidFilter]
     [HttpPut, Route("{id}")]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Expense))]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -123,50 +106,53 @@ public class ExpenseController(ICategoryRepository categoryRepository, IExpenseR
         if (expense == null)
             return NotFound();
 
-        if (expense.Category.CategoryId != request.Category)
-        {
-            // validate category
-            var newCategory = await categoryRepository.GetCategoryByIdAsync(request.Category);
-            
-            if (newCategory == null)
-                ModelState.AddModelError("Category", $"'{request.Category}' is not a valid category.");
-            else
-                expense.Category = newCategory;
-        }
+        var updatedExpense = await ValidateExpenseRequestAsync(request, ModelState);
+        if (updatedExpense == null)
+            return ValidationProblem();
         
-        // validate date
-        if (!ValidateDate(request.Date))
-            ModelState.AddModelError("Date", "Date can't be in the future.");
-
-        if (!ModelState.IsValid)
-        {
-            var problemDetails = ProblemDetailsFactory.CreateValidationProblemDetails(
-                HttpContext,
-                ModelState,
-                StatusCodes.Status400BadRequest);
-            return BadRequest(problemDetails);
-        }
-
-        expense.Description = request.Description;
-        expense.Amount = request.Amount;
-        expense.Date = request.Date;
-
-        var updatedExpense = await expenseRepository.UpdateExpenseAsync(expense);
+        updatedExpense.ExpenseId = expense.ExpenseId;
+        updatedExpense = await expenseRepository.UpdateExpenseAsync(updatedExpense);
         return Ok(ExpenseResult.FromExpense(updatedExpense));
     }
 
-    private void ValidateExpense(ExpenseRequest request, Category? category)
+    private async Task<Expense?> ValidateExpenseRequestAsync(ExpenseRequest request, ModelStateDictionary modelState)
     {
+        var category = await categoryRepository.GetCategoryByIdAsync(request.Category);
         if (category == null)
-            ModelState.AddModelError("Category", $"'{request.Category}' is not a valid category.");
+            modelState.AddModelError(nameof(request.Category), $"Invalid category: '{request.Category}'.");
 
         // validate date
-        if (!ValidateDate(request.Date))
-            ModelState.AddModelError("Date", "Date can't be in the future.");
-    }
+        if (request.Date > DateTime.UtcNow)
+            modelState.AddModelError(nameof(request.Date), "Date can't be in the future.");
 
-    private bool ValidateDate(DateTime date)
+        if (!modelState.IsValid)
+            return null;
+
+        var expense = new Expense
+        {
+            Description = request.Description,
+            Amount = request.Amount,
+            Date = request.Date,
+            Category = category!,
+        };
+
+        return expense;
+    }
+}
+
+public class SuppressModelStateInvalidFilterAttribute : Attribute, IActionModelConvention
+{
+    private const string FilterName = "ModelStateInvalidFilterFactory";
+        
+    public void Apply(ActionModel action)
     {
-        return date <= DateTime.UtcNow;
+        for (int i = 0; i < action.Filters.Count; i++)
+        {
+            if (action.Filters[i].GetType().Name == FilterName)
+            {
+                action.Filters.RemoveAt(i);
+                break;
+            }
+        }
     }
 }
