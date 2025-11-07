@@ -87,3 +87,17 @@ BEGIN
 	DELETE FROM UserExpenses WHERE ExpenseId = @ExpenseId
 	DELETE FROM Expenses WHERE ExpenseId = @ExpenseId
 END
+GO
+
+CREATE OR ALTER PROC sp_CreateUserIfEmailDoesNotExists (@Username VARCHAR(100), @Email VARCHAR(254), @HashedPassword VARCHAR(MAX))
+AS
+BEGIN 
+    IF @Email NOT IN (SELECT Email FROM Users) 
+    BEGIN 
+        INSERT INTO Users (Username, Email, HashedPassword)
+        VALUES (@Username, @Email, @HashedPassword)
+        
+        SELECT u.UserId, u.Username, u.Email, u.HashedPassword FROM Users u WHERE Email = @Email
+    END
+END
+GO
