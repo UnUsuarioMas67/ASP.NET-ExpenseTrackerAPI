@@ -15,29 +15,21 @@ public class AuthController(IAuthService authService) : ControllerBase
     [HttpPost, Route("login")]
     public async Task<IActionResult> Login(LoginRequest login)
     {
-        try
-        {
-            var token = await authService.Login(login);
-            return Ok(new { token });
-        }
-        catch (AuthenticationException)
-        {
-            return Ok(new { errorMessage = "Incorrect email or password" });
-        }
+        var result = await authService.Login(login);
+        if (result.IsSuccess)
+            return Ok(new {token = result.Value});
+        
+        return Ok(new {error = result.Error});
     }
 
     [HttpPost, Route("register")]
     public async Task<IActionResult> Register(RegisterRequest register)
     {
-        try
-        {
-            var token = await authService.Register(register);
-            return Ok(new { token });
-        }
-        catch (AuthenticationException e)
-        {
-            return Ok(new { errorMessage = e.InnerMessage });
-        }
+        var result = await authService.Register(register);
+        if (result.IsSuccess)
+            return Ok(new {token = result.Value});
+        
+        return Ok(new {error = result.Error});
     }
 
     [HttpGet, Route("test")]
