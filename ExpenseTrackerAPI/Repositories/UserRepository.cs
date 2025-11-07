@@ -1,19 +1,20 @@
-﻿using Dapper;
+﻿using System.Data;
+using Dapper;
 using Microsoft.Data.SqlClient;
 
 namespace ExpenseTrackerAPI.Repositories;
 
 public interface IUserRepository
 {
-    Task<User> AddUser(string email, string username, string password);
+    Task<User?> AddUser(string email, string username, string password);
     Task<User?> GetUserByEmail(string email);
 }
 
 public class UserRepository(IConfiguration configuration) : IUserRepository
 {
     private readonly List<User> _users = [];
-    
-    public async Task<User> AddUser(string email, string username, string password)
+
+    public async Task<User?> AddUser(string email, string username, string password)
     {
         if (string.IsNullOrWhiteSpace(email)
             || string.IsNullOrWhiteSpace(password)
@@ -21,38 +22,25 @@ public class UserRepository(IConfiguration configuration) : IUserRepository
         {
             throw new ArgumentException("One or more arguments are blank");
         }
-
-        var sql = @"INSERT INTO Users (Email, Username, HashedPassword) VALUES (@email, @username, @hashedPassword)
-                    SELECT u.UserId, u.Username, u.Email, u.HashedPassword FROM Users u WHERE Email = @email";
+        
         var param = new { email, username, hashedPassword = BCrypt.Net.BCrypt.HashPassword(password) };
 
-        try
-        {
-            await using var conn = new SqlConnection(configuration.GetConnectionString("ExpenseTracker")!);
-            await conn.OpenAsync();
+        await using var conn = new SqlConnection(configuration.GetConnectionString("ExpenseTracker")!);
+        await conn.OpenAsync();
 
-            var user = await conn.QueryFirstAsync<User>(sql, param);
-            return user;
-        }
-        catch (SqlException e)
-        {
-            if (e.Message.Contains("Violation of UNIQUE KEY constraint"))
-                throw new DuplicateEmailException();
-            
-            throw;
-        }
+        var user = await conn.QueryFirstOrDefaultAsync<User>("sp_CreateUserIfEmailDoesNotExists", param,
+            commandType: CommandType.StoredProcedure);
+        return user;
     }
 
     public async Task<User?> GetUserByEmail(string email)
     {
         var sql = "SELECT u.UserId, u.Username, u.Email, u.HashedPassword FROM Users u WHERE Email = @email";
-        
+
         await using var conn = new SqlConnection(configuration.GetConnectionString("ExpenseTracker")!);
         await conn.OpenAsync();
-        
+
         var user = await conn.QueryFirstOrDefaultAsync<User>(sql, new { email });
         return user;
     }
 }
-
-public class DuplicateEmailException() : Exception("Email already registered");
